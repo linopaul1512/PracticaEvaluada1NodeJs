@@ -1,0 +1,20 @@
+[
+  {
+    "ci": "30203711",
+    "nombre": "Lino Benavides ",
+    "edad": "20",
+    "curso": "NodeJS"
+  },
+  {
+    "ci": "30596874",
+    "nombre": "Siberia Vilchez",
+    "edad": "20",
+    "curso": "NodeJS"
+  },
+  {
+    "ci": "David",
+    "nombre": "David Mendoza",
+    "edad": "20",
+    "curso": "NodeJS"
+  }
+]

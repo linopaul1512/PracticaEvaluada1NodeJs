@@ -1,68 +1,149 @@
-const express = require('express')
-const bodyParse = require('body-parser')
-const afile = require("./archivosNodeJS/appendFile")
-const rfile = require("./archivosNodeJS/readFile")
+const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
 
-const app = express()
+const app = express();
+const port = 3000;
 
+// Configurar Express para servir archivos estáticos
+app.use(express.static(__dirname));
 
-app.use(bodyParse.json());
-app.use(bodyParse.urlencoded({
-    extended: true
-}))
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-const port = 3000
+// Listar estudiantes
+app.get('/estudiantes', (req, res) => {
+    const filePath = path.join(__dirname, 'files', 'estudiantes.json');
 
-app.listen(port, ()=>{
-    console.log(`Servidor funcionando en https://localhost:${port}`)
-})
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).send('Error leyendo el archivo de estudiantes.');
+        }
 
+        let estudiantes = [];
+        if (data) {
+            estudiantes = JSON.parse(data);
+        }
 
+        res.json(estudiantes);
+    });
+});
 
-// Mostrar ESTUDIANTES 
-app.get('/', (req, res)=>{
-    rfile.readThisFile("./files/participantes.txt")
-})
+// Agregar estudiante
+app.post('/agregar', (req, res) => {
+    const { ci, nombre, edad, curso } = req.body;
 
-//AGREGAR
-app.post('/agregar', (req, res)=>{
+    if (!ci || !nombre || !edad || !curso) {
+        return res.status(400).send('Todos los campos son obligatorios.');
+    }
 
-    //crear un archivo
-    const estudiantes = `'ci': ci, 'nombre': nombre 'edad': edad 'curso': curso /n`
-    //GUIARDAR
-    afile.appendToFile("./files/paticipiantes.txt", estudiantes)
+    const nuevoEstudiante = { ci, nombre, edad, curso };
 
-    res.status(200).json("Estudiante agregada exitosamente")
-})  
+    const filePath = path.join(__dirname, 'files', 'estudiantes.json');
 
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        let estudiantes = [];
 
-//Modificar
-app.put('/estudiantes/:id', (req, res)=> {
-`
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Formulario de Estudiante</title>
-</head>
-<body>
-    <h1>Formulario de Estudiante</h1>
-    <form action="/guardar" method="post">
-        <label for="nombre">Nombre:</label>
-        <input type="text" id="nombre" name="nombre" required><br><br>
-        <label for="edad">Edad:</label>
-        <input type="number" id="edad" name="edad" required><br><br>
-        <label for="curso">Curso:</label>
-        <input type="text" id="curso" name="curso" required><br><br>
-        <input type="submit" value="Guardar">
-    </form>
-    <ul>
+        if (!err && data) {
+            estudiantes = JSON.parse(data);
+        }
 
-    </ul>
-</body>
-</html>
+        const index = estudiantes.findIndex(est => est.ci === ci);
 
+        if (index !== -1) {
+            return res.status(400).send('Estudiante con la misma CI ya existe.');
+        }
 
-`
-    
-   
-})
+        estudiantes.push(nuevoEstudiante);
+
+        fs.writeFile(filePath, JSON.stringify(estudiantes, null, 2), (err) => {
+            if (err) {
+                return res.status(500).send('Error guardando el estudiante.');
+            }
+            res.status(200).send('Estudiante agregado exitosamente.');
+        });
+    });
+});
+
+//Eliminar estudiante
+app.delete('/eliminar/:ci', (req, res) => {
+    const { ci } = req.params;
+    const filePath = path.join(__dirname, 'files', 'estudiantes.json');
+
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).send('Error leyendo el archivo de estudiantes.');
+        }
+
+        let estudiantes = JSON.parse(data);
+        estudiantes = estudiantes.filter(est => est.ci !== ci);
+
+        fs.writeFile(filePath, JSON.stringify(estudiantes, null, 2), (err) => {
+            if (err) {
+                return res.status(500).send('Error eliminando el estudiante.');
+            }
+            res.status(200).send('Estudiante eliminado exitosamente.');
+        });
+    });
+});
+
+// Buscar un estudiante
+app.get('/estudiante/:ci', (req, res) => {
+    const { ci } = req.params;
+    const filePath = path.join(__dirname, 'files', 'estudiantes.json');
+
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).send('Error leyendo el archivo de estudiantes.');
+        }
+
+        let estudiantes = [];
+        if (data) {
+            estudiantes = JSON.parse(data);
+        }
+
+        const estudiante = estudiantes.find(est => est.ci === ci);
+
+        if (!estudiante) {
+            return res.status(404).send('Estudiante no encontrado.');
+        }
+
+        res.json(estudiante);
+    });
+});
+
+// Modificar estudiante
+app.post('/modificar/:ci', (req, res) => {
+    const { ci } = req.params;
+    const { nombre, edad, curso } = req.body;
+
+    const filePath = path.join(__dirname, 'files', 'estudiantes.json');
+
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).send('Error leyendo el archivo de estudiantes.');
+        }
+
+        let estudiantes = JSON.parse(data);
+        const index = estudiantes.findIndex(est => est.ci === ci);
+
+        if (index === -1) {
+            return res.status(404).send('Estudiante no encontrado.');
+        }
+
+        estudiantes[index] = { ci, nombre, edad, curso };
+
+        fs.writeFile(filePath, JSON.stringify(estudiantes, null, 2), (err) => {
+            if (err) {
+                return res.status(500).send('Error guardando la modificación.');
+            }
+            res.status(200).send('Estudiante modificado exitosamente.');
+        });
+    });
+});
+
+// Iniciar el servidor localhost:3000
+app.listen(port, () => {
+    console.log(`Servidor funcionando en http://localhost:${port}`);
+});
